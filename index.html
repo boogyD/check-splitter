@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReceiptSplitter</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f7f7f8;
+      color: #111;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px 24px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    }
+    h1 { font-size: 22px; margin: 0 0 12px; }
+    p { color: #555; font-size: 15px; line-height: 1.5; margin: 8px 0; }
+    .button {
+      display: inline-block;
+      background: #2563eb;
+      color: #fff;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-weight: 600;
+      margin-top: 16px;
+      cursor: pointer;
+      border: none;
+      font-size: 15px;
+      font-family: inherit;
+    }
+    .hidden { display: none; }
+    .spinner {
+      border: 3px solid #eee;
+      border-top: 3px solid #2563eb;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .small { font-size: 13px; color: #888; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div id="opening">
+      <div class="spinner"></div>
+      <h1>Opening ReceiptSplitter…</h1>
+      <p>If the app doesn't open automatically, tap the button below.</p>
+      <button class="button" id="retry">Open app</button>
+    </div>
+    <div id="fallback" class="hidden">
+      <h1>App not detected</h1>
+      <p>It looks like ReceiptSplitter isn't installed on this device.</p>
+      <p>Ask whoever sent you the link for the installer, then come back and tap "Try again".</p>
+      <button class="button" id="tryAgain">Try again</button>
+    </div>
+    <div id="error" class="hidden">
+      <h1>Invalid link</h1>
+      <p>This link is missing receipt data. Ask the sender to share again.</p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var data = params.get('data');
+
+      var opening = document.getElementById('opening');
+      var fallback = document.getElementById('fallback');
+      var errorEl = document.getElementById('error');
+
+      if (!data) {
+        opening.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      // Pass the base64 through unchanged — the app's parser handles
+      // raw +/=  characters via regex + decodeURIComponent.
+      var appUrl = 'mysplitapp://receipt?data=' + data;
+      var fallbackTimer;
+
+      function tryOpenApp() {
+        opening.classList.remove('hidden');
+        fallback.classList.add('hidden');
+        clearTimeout(fallbackTimer);
+        window.location.href = appUrl;
+        // If the page is still visible after 1.5s, the app didn't intercept.
+        fallbackTimer = setTimeout(showFallback, 1500);
+      }
+
+      function showFallback() {
+        opening.classList.add('hidden');
+        fallback.classList.remove('hidden');
+      }
+
+      // If the page becomes hidden, the app likely opened — cancel fallback.
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) clearTimeout(fallbackTimer);
+      });
+
+      document.getElementById('retry').addEventListener('click', tryOpenApp);
+      document.getElementById('tryAgain').addEventListener('click', tryOpenApp);
+
+      // Auto-attempt on load — modern Chrome may require a tap, in which
+      // case the visible "Open app" button takes over.
+      tryOpenApp();
+    })();
+  </script>
+</body>
+</html>
