@@ -40,11 +40,6 @@
       font-size: 15px;
       font-family: inherit;
     }
-    .btn-outline {
-      background: transparent;
-      border: 1px solid #444;
-      color: #ccc;
-    }
     .hidden { display: none !important; }
     .spinner {
       border: 3px solid #333;
@@ -72,7 +67,6 @@
       align-items: center;
       padding: 14px 12px;
       border-bottom: 1px solid #1a1a1a;
-      cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       transition: background 0.15s;
       border-radius: 8px;
@@ -80,7 +74,6 @@
     .cl-item:active { background: #1a1a1a; }
     .cl-item.locked {
       opacity: 0.45;
-      cursor: default;
       pointer-events: none;
     }
     .cl-item.claimed { background: #0d2847; }
@@ -95,6 +88,7 @@
       justify-content: center;
       margin-right: 12px;
       transition: all 0.15s;
+      cursor: pointer;
     }
     .cl-item.claimed .cl-check,
     .cl-item.locked .cl-check {
@@ -114,15 +108,119 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .cl-qty { color: #888; font-size: 13px; }
+    .cl-qty {
+      color: #888;
+      font-size: 13px;
+      margin-left: 4px;
+    }
     .cl-taken { color: #888; font-size: 12px; font-style: italic; }
+
+    .cl-actions {
+      display: flex;
+      gap: 6px;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+    .cl-actions button {
+      background: #222;
+      border: 1px solid #333;
+      color: #aaa;
+      border-radius: 6px;
+      width: 30px; height: 30px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cl-actions button:active { background: #333; }
 
     .cl-price {
       font-size: 15px;
       font-weight: 600;
-      margin-left: 12px;
+      margin-left: 8px;
       white-space: nowrap;
+      min-width: 50px;
+      text-align: right;
     }
+
+    /* --- Add item row --- */
+    .cl-add {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 12px;
+      color: #2563eb;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cl-add:active { background: #1a1a1a; }
+
+    /* --- Modal --- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal {
+      background: #1a1a1a;
+      border-radius: 16px;
+      padding: 24px 20px;
+      width: 100%;
+      max-width: 340px;
+    }
+    .modal h2 { font-size: 18px; margin-bottom: 16px; text-align: center; }
+    .modal label {
+      display: block;
+      color: #888;
+      font-size: 13px;
+      margin-bottom: 4px;
+      margin-top: 12px;
+    }
+    .modal input {
+      width: 100%;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+    }
+    .modal input:focus { border-color: #2563eb; }
+    .modal-row {
+      display: flex;
+      gap: 10px;
+    }
+    .modal-row > div { flex: 1; }
+    .modal-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .modal-btns button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+    }
+    .modal-btns .cancel-btn { background: #333; color: #ccc; }
+    .modal-btns .save-btn { background: #2563eb; color: #fff; }
+    .modal-btns .save-btn:disabled { opacity: 0.4; cursor: default; }
 
     /* --- Footer --- */
     .cl-footer {
@@ -163,9 +261,33 @@
       <p>Tap items you ordered</p>
     </div>
     <div id="itemList"></div>
+    <div id="addRow" class="cl-add">+ Add item</div>
     <div class="cl-footer">
       <span class="label">Total to pay</span>
       <span class="total" id="totalDisplay">0.00</span>
+    </div>
+  </div>
+
+  <!-- Add item modal -->
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="modalTitle">Add item</h2>
+      <label for="mName">Name</label>
+      <input type="text" id="mName" placeholder="Item name" autocomplete="off">
+      <div class="modal-row">
+        <div>
+          <label for="mQty">Qty</label>
+          <input type="number" id="mQty" value="1" min="1" step="1" inputmode="numeric">
+        </div>
+        <div>
+          <label for="mPrice">Price (total)</label>
+          <input type="number" id="mPrice" placeholder="0.00" min="0" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+      <div class="modal-btns">
+        <button class="cancel-btn" id="mCancel">Cancel</button>
+        <button class="save-btn" id="mSave">Save</button>
+      </div>
     </div>
   </div>
 
@@ -213,10 +335,10 @@
       return;
     }
 
-    // Ensure shape
+    var idCounter = Date.now();
     items = items.map(function (it, i) {
       return {
-        id: it.id || ('item-' + i),
+        id: it.id || ('item-' + (idCounter++)),
         item_name: it.item_name || 'Item',
         price: Number(it.price) || 0,
         qty: Number(it.qty) || 1,
@@ -249,11 +371,41 @@
 
     document.getElementById('retryBtn').addEventListener('click', tryOpen);
 
-    // --- Render checklist in browser ---
+    // --- Helpers ---
+    var checkSvg = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7.5L5.5 10.5L11.5 3.5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    function escHtml(s) {
+      var d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // --- Split ---
+    function splitItem(idx) {
+      var item = items[idx];
+      if (!item || item.qty <= 1) return;
+      var unit = Math.round((item.price / item.qty) * 100) / 100;
+      var rows = [];
+      for (var i = 0; i < item.qty; i++) {
+        rows.push({
+          id: 'item-' + (idCounter++),
+          item_name: item.item_name,
+          price: unit,
+          qty: 1,
+          claimed: false,
+          locked: false
+        });
+      }
+      items.splice(idx, 1);
+      for (var j = rows.length - 1; j >= 0; j--) {
+        items.splice(idx, 0, rows[j]);
+      }
+      renderItems();
+    }
+
+    // --- Render ---
     var listEl = document.getElementById('itemList');
     var totalEl = document.getElementById('totalDisplay');
-
-    var checkSvg = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7.5L5.5 10.5L11.5 3.5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
     function renderItems() {
       listEl.innerHTML = '';
@@ -261,16 +413,45 @@
         var row = document.createElement('div');
         row.className = 'cl-item' + (item.locked ? ' locked' : '') + (item.claimed ? ' claimed' : '');
 
-        var check = '<div class="cl-check">' + checkSvg + '</div>';
-        var qty = item.qty > 1 ? '<span class="cl-qty">\u00d7' + item.qty + '</span>' : '';
-        var taken = item.locked ? '<div class="cl-taken">TAKEN</div>' : '';
-        var price = item.price.toFixed(2);
+        // Checkbox
+        var checkDiv = document.createElement('div');
+        checkDiv.className = 'cl-check';
+        checkDiv.innerHTML = checkSvg;
+        row.appendChild(checkDiv);
 
-        row.innerHTML = check +
-          '<div class="cl-info"><div class="cl-name">' + escHtml(item.item_name) + ' ' + qty + '</div>' + taken + '</div>' +
-          '<div class="cl-price">' + price + '</div>';
+        // Info
+        var infoDiv = document.createElement('div');
+        infoDiv.className = 'cl-info';
+        var nameHtml = '<div class="cl-name">' + escHtml(item.item_name) +
+          '<span class="cl-qty"> \u00d7' + item.qty + '</span></div>';
+        if (item.locked) nameHtml += '<div class="cl-taken">TAKEN</div>';
+        infoDiv.innerHTML = nameHtml;
+        row.appendChild(infoDiv);
 
+        // Actions (split) — only for non-locked items with qty > 1
+        if (!item.locked && item.qty > 1) {
+          var actDiv = document.createElement('div');
+          actDiv.className = 'cl-actions';
+          var splitBtn = document.createElement('button');
+          splitBtn.textContent = '\u229F'; // ⊟
+          splitBtn.title = 'Split';
+          splitBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            splitItem(idx);
+          });
+          actDiv.appendChild(splitBtn);
+          row.appendChild(actDiv);
+        }
+
+        // Price
+        var priceDiv = document.createElement('div');
+        priceDiv.className = 'cl-price';
+        priceDiv.textContent = item.price.toFixed(2);
+        row.appendChild(priceDiv);
+
+        // Toggle claimed on tap (not on locked)
         if (!item.locked) {
+          row.style.cursor = 'pointer';
           row.addEventListener('click', function () {
             items[idx].claimed = !items[idx].claimed;
             renderItems();
@@ -290,11 +471,46 @@
       totalEl.textContent = sum.toFixed(2);
     }
 
-    function escHtml(s) {
-      var d = document.createElement('div');
-      d.textContent = s;
-      return d.innerHTML;
-    }
+    // --- Add item modal ---
+    var modalOverlay = document.getElementById('modalOverlay');
+    var mName = document.getElementById('mName');
+    var mQty = document.getElementById('mQty');
+    var mPrice = document.getElementById('mPrice');
+    var mSave = document.getElementById('mSave');
+    var mCancel = document.getElementById('mCancel');
+
+    document.getElementById('addRow').addEventListener('click', function () {
+      mName.value = '';
+      mQty.value = '1';
+      mPrice.value = '';
+      modalOverlay.classList.remove('hidden');
+      mName.focus();
+    });
+
+    mCancel.addEventListener('click', function () {
+      modalOverlay.classList.add('hidden');
+    });
+
+    modalOverlay.addEventListener('click', function (e) {
+      if (e.target === modalOverlay) modalOverlay.classList.add('hidden');
+    });
+
+    mSave.addEventListener('click', function () {
+      var name = mName.value.trim();
+      var qty = parseInt(mQty.value, 10);
+      var price = parseFloat(mPrice.value);
+      if (!name || !qty || qty < 1 || isNaN(price) || price <= 0) return;
+      items.push({
+        id: 'item-' + (idCounter++),
+        item_name: name,
+        price: Math.round(price * 100) / 100,
+        qty: qty,
+        claimed: false,
+        locked: false
+      });
+      modalOverlay.classList.add('hidden');
+      renderItems();
+    });
 
     // Auto-try open on load
     tryOpen();
