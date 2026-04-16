@@ -2,36 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>ReceiptSplitter</title>
   <style>
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      margin: 0;
-      padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f7f7f8;
-      color: #111;
-    }
-    body {
+      background: #000;
+      color: #fff;
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
     }
+    body { display: flex; flex-direction: column; align-items: center; padding: 16px; }
+
+    /* --- Opening / error cards --- */
     .card {
-      background: #fff;
+      background: #1a1a1a;
       border-radius: 16px;
       padding: 32px 24px;
-      max-width: 360px;
+      max-width: 400px;
       width: 100%;
       text-align: center;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      margin-top: 40px;
     }
-    h1 { font-size: 22px; margin: 0 0 12px; }
-    p { color: #555; font-size: 15px; line-height: 1.5; margin: 8px 0; }
-    .button {
+    .card h1 { font-size: 20px; margin-bottom: 12px; }
+    .card p { color: #aaa; font-size: 14px; line-height: 1.5; margin: 6px 0; }
+    .btn {
       display: inline-block;
       background: #2563eb;
       color: #fff;
@@ -45,88 +40,265 @@
       font-size: 15px;
       font-family: inherit;
     }
-    .hidden { display: none; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid #444;
+      color: #ccc;
+    }
+    .hidden { display: none !important; }
     .spinner {
-      border: 3px solid #eee;
+      border: 3px solid #333;
       border-top: 3px solid #2563eb;
       border-radius: 50%;
-      width: 32px;
-      height: 32px;
+      width: 32px; height: 32px;
       animation: spin 1s linear infinite;
       margin: 0 auto 16px;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- Checklist --- */
+    #checklist { max-width: 400px; width: 100%; padding-bottom: 100px; }
+    .cl-header {
+      text-align: center;
+      padding: 20px 0 12px;
+      border-bottom: 1px solid #222;
+      margin-bottom: 8px;
     }
-    .small { font-size: 13px; color: #888; margin-top: 16px; }
+    .cl-header h1 { font-size: 20px; font-weight: 700; }
+    .cl-header p { color: #888; font-size: 13px; margin-top: 4px; }
+
+    .cl-item {
+      display: flex;
+      align-items: center;
+      padding: 14px 12px;
+      border-bottom: 1px solid #1a1a1a;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s;
+      border-radius: 8px;
+    }
+    .cl-item:active { background: #1a1a1a; }
+    .cl-item.locked {
+      opacity: 0.45;
+      cursor: default;
+      pointer-events: none;
+    }
+    .cl-item.claimed { background: #0d2847; }
+
+    .cl-check {
+      width: 24px; height: 24px;
+      border: 2px solid #444;
+      border-radius: 6px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+      transition: all 0.15s;
+    }
+    .cl-item.claimed .cl-check,
+    .cl-item.locked .cl-check {
+      background: #2563eb;
+      border-color: #2563eb;
+    }
+    .cl-item.locked .cl-check { background: #555; border-color: #555; }
+    .cl-check svg { display: none; }
+    .cl-item.claimed .cl-check svg,
+    .cl-item.locked .cl-check svg { display: block; }
+
+    .cl-info { flex: 1; min-width: 0; }
+    .cl-name {
+      font-size: 15px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cl-qty { color: #888; font-size: 13px; }
+    .cl-taken { color: #888; font-size: 12px; font-style: italic; }
+
+    .cl-price {
+      font-size: 15px;
+      font-weight: 600;
+      margin-left: 12px;
+      white-space: nowrap;
+    }
+
+    /* --- Footer --- */
+    .cl-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0; right: 0;
+      background: #111;
+      border-top: 1px solid #222;
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .cl-footer .label { color: #888; font-size: 14px; }
+    .cl-footer .total { font-size: 22px; font-weight: 700; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div id="opening">
-      <div class="spinner"></div>
-      <h1>Opening ReceiptSplitter…</h1>
-      <p>If the app doesn't open automatically, tap the button below.</p>
-      <button class="button" id="retry">Open app</button>
+
+  <!-- Phase 1: trying to open app -->
+  <div class="card" id="opening">
+    <div class="spinner"></div>
+    <h1>Opening ReceiptSplitter…</h1>
+    <p>If the app doesn't open, tap below.</p>
+    <button class="btn" id="retryBtn">Open app</button>
+  </div>
+
+  <!-- Phase 2: error — no data -->
+  <div class="card hidden" id="error">
+    <h1>Invalid link</h1>
+    <p>This link has no receipt data. Ask the sender to share again.</p>
+  </div>
+
+  <!-- Phase 3: in-browser checklist (app not installed) -->
+  <div id="checklist" class="hidden">
+    <div class="cl-header">
+      <h1>Your share</h1>
+      <p>Tap items you ordered</p>
     </div>
-    <div id="fallback" class="hidden">
-      <h1>App not detected</h1>
-      <p>It looks like ReceiptSplitter isn't installed on this device.</p>
-      <p>Ask whoever sent you the link for the installer, then come back and tap "Try again".</p>
-      <button class="button" id="tryAgain">Try again</button>
-    </div>
-    <div id="error" class="hidden">
-      <h1>Invalid link</h1>
-      <p>This link is missing receipt data. Ask the sender to share again.</p>
+    <div id="itemList"></div>
+    <div class="cl-footer">
+      <span class="label">Total to pay</span>
+      <span class="total" id="totalDisplay">0.00</span>
     </div>
   </div>
 
   <script>
-    (function () {
-      var params = new URLSearchParams(window.location.search);
-      var data = params.get('data');
+  (function () {
+    // --- Read data from URL fragment (never sent to server) ---
+    var raw = window.location.hash;
+    var dataStr = null;
+    if (raw.indexOf('#data=') === 0) {
+      dataStr = decodeURIComponent(raw.slice(6));
+    }
+    // Legacy: also check ?data= for old links still in WhatsApp chats
+    if (!dataStr) {
+      var sp = new URLSearchParams(window.location.search);
+      if (sp.has('data')) dataStr = sp.get('data');
+    }
 
-      var opening = document.getElementById('opening');
-      var fallback = document.getElementById('fallback');
-      var errorEl = document.getElementById('error');
+    var openingEl = document.getElementById('opening');
+    var errorEl = document.getElementById('error');
+    var checklistEl = document.getElementById('checklist');
 
-      if (!data) {
-        opening.classList.add('hidden');
-        errorEl.classList.remove('hidden');
-        return;
+    if (!dataStr) {
+      openingEl.classList.add('hidden');
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    // --- Decode base64 → UTF-8 → JSON ---
+    function b64ToUtf8(b64) {
+      var bin = atob(b64);
+      var pct = '';
+      for (var i = 0; i < bin.length; i++) {
+        pct += '%' + ('0' + bin.charCodeAt(i).toString(16)).slice(-2);
       }
+      return decodeURIComponent(pct);
+    }
 
-      // Pass the base64 through unchanged — the app's parser handles
-      // raw +/=  characters via regex + decodeURIComponent.
-      var appUrl = 'mysplitapp://receipt?data=' + data;
-      var fallbackTimer;
+    var items;
+    try {
+      items = JSON.parse(b64ToUtf8(dataStr));
+      if (!Array.isArray(items) || items.length === 0) throw new Error();
+    } catch (e) {
+      openingEl.classList.add('hidden');
+      errorEl.classList.remove('hidden');
+      return;
+    }
 
-      function tryOpenApp() {
-        opening.classList.remove('hidden');
-        fallback.classList.add('hidden');
-        clearTimeout(fallbackTimer);
-        window.location.href = appUrl;
-        // If the page is still visible after 1.5s, the app didn't intercept.
-        fallbackTimer = setTimeout(showFallback, 1500);
-      }
+    // Ensure shape
+    items = items.map(function (it, i) {
+      return {
+        id: it.id || ('item-' + i),
+        item_name: it.item_name || 'Item',
+        price: Number(it.price) || 0,
+        qty: Number(it.qty) || 1,
+        claimed: false,
+        locked: !!it.locked
+      };
+    });
 
-      function showFallback() {
-        opening.classList.add('hidden');
-        fallback.classList.remove('hidden');
-      }
+    // --- Try opening native app ---
+    var appUrl = 'mysplitapp://receipt?data=' + dataStr;
+    var fallbackTimer;
 
-      // If the page becomes hidden, the app likely opened — cancel fallback.
-      document.addEventListener('visibilitychange', function () {
-        if (document.hidden) clearTimeout(fallbackTimer);
+    function tryOpen() {
+      openingEl.classList.remove('hidden');
+      checklistEl.classList.add('hidden');
+      clearTimeout(fallbackTimer);
+      window.location.href = appUrl;
+      fallbackTimer = setTimeout(showChecklist, 1500);
+    }
+
+    function showChecklist() {
+      openingEl.classList.add('hidden');
+      checklistEl.classList.remove('hidden');
+      renderItems();
+    }
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) clearTimeout(fallbackTimer);
+    });
+
+    document.getElementById('retryBtn').addEventListener('click', tryOpen);
+
+    // --- Render checklist in browser ---
+    var listEl = document.getElementById('itemList');
+    var totalEl = document.getElementById('totalDisplay');
+
+    var checkSvg = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7.5L5.5 10.5L11.5 3.5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    function renderItems() {
+      listEl.innerHTML = '';
+      items.forEach(function (item, idx) {
+        var row = document.createElement('div');
+        row.className = 'cl-item' + (item.locked ? ' locked' : '') + (item.claimed ? ' claimed' : '');
+
+        var check = '<div class="cl-check">' + checkSvg + '</div>';
+        var qty = item.qty > 1 ? '<span class="cl-qty">\u00d7' + item.qty + '</span>' : '';
+        var taken = item.locked ? '<div class="cl-taken">TAKEN</div>' : '';
+        var price = item.price.toFixed(2);
+
+        row.innerHTML = check +
+          '<div class="cl-info"><div class="cl-name">' + escHtml(item.item_name) + ' ' + qty + '</div>' + taken + '</div>' +
+          '<div class="cl-price">' + price + '</div>';
+
+        if (!item.locked) {
+          row.addEventListener('click', function () {
+            items[idx].claimed = !items[idx].claimed;
+            renderItems();
+          });
+        }
+
+        listEl.appendChild(row);
       });
+      updateTotal();
+    }
 
-      document.getElementById('retry').addEventListener('click', tryOpenApp);
-      document.getElementById('tryAgain').addEventListener('click', tryOpenApp);
+    function updateTotal() {
+      var sum = 0;
+      items.forEach(function (it) {
+        if (it.claimed && !it.locked) sum += it.price;
+      });
+      totalEl.textContent = sum.toFixed(2);
+    }
 
-      // Auto-attempt on load — modern Chrome may require a tap, in which
-      // case the visible "Open app" button takes over.
-      tryOpenApp();
-    })();
+    function escHtml(s) {
+      var d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // Auto-try open on load
+    tryOpen();
+  })();
   </script>
 </body>
 </html>
